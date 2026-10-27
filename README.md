@@ -13,7 +13,8 @@
 | 异步任务 | Celery 5 + RabbitMQ 3（DLX 死信、Beat 周期任务、显式重试） |
 | 日志 | structlog JSON + request_id 中间件 |
 | 测试 | pytest + httpx ASGI + Celery eager 模式 |
-| CI | GitHub Actions（ruff lint + format + pytest） |
+| CI | GitHub Actions（ruff lint + format + pytest + Docker 镜像构建冒烟） |
+| CD | GitHub Actions（main / tag 触发，构建并推送 GHCR 镜像） |
 
 ## 快速开始
 
@@ -41,7 +42,20 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-测试会自动创建独立数据库 `app_test` 并跑迁移，用 Celery eager 模式同步执行任务，不需要启动 Worker。
+测试会自动创建独立数据库 `app_test` 并跑迁移，用 Celery eager 模式同步执行任务，不需要启动 Worker。测试强制使用 `app_test` 与 Redis `db1`，不读取 `.env` 中的库名，避免清空开发数据。
+
+## CI / CD
+
+- **CI**（`.github/workflows/ci.yml`）：push / PR 到 `main` 触发。PostgreSQL 16、Redis 7 作为 service container，依次执行 `ruff check`、`ruff format --check`、`pytest`；另有独立 job 构建 Docker 镜像并请求 `/health/live` 做启动冒烟，确保部署产物可用。
+- **CD**（`.github/workflows/cd.yml`）：push 到 `main`、推送 `v*` tag 或手动触发时，构建镜像并推送到 GHCR（使用 `GITHUB_TOKEN`，无需额外 secrets）。
+
+镜像拉取：
+
+```bash
+docker pull ghcr.io/devdreamer-j/biteagle_ai_services_backend:main
+```
+
+> 首次推送后 GHCR 包默认是私有的，需要在包设置中改为 public 才能匿名拉取。
 
 ## 核心设计
 

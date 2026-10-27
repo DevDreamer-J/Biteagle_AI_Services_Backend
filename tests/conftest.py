@@ -13,10 +13,13 @@ import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
 
-# 在导入 app 之前锁定测试环境
-os.environ.setdefault("ENVIRONMENT", "test")
-os.environ.setdefault("POSTGRES_DB", "app_test")
-os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
+# 在导入 app 之前锁定测试环境。
+# 必须强制覆盖而不是 setdefault：CI env 与本地 .env 都会提供 POSTGRES_DB / REDIS_URL，
+# 一旦沿用，db_session 里的 TRUNCATE 与 flushdb 会直接作用在开发库和开发缓存上。
+# 测试依赖 docker compose 暴露到宿主机的端口。
+os.environ["ENVIRONMENT"] = "test"
+os.environ["POSTGRES_DB"] = "app_test"
+os.environ["REDIS_URL"] = "redis://localhost:6379/1"
 
 import httpx
 import psycopg
@@ -54,6 +57,12 @@ def _admin_conn():
 @pytest.fixture(scope="session")
 def setup_test_database():
     """创建测试库并跑迁移，整个测试会话只做一次。"""
+    settings = get_settings()
+    assert settings.postgres_db == TEST_DB, (
+        f"测试库隔离失效：当前指向 {settings.postgres_db!r}，"
+        f"用例会清空该库数据，请检查环境变量 POSTGRES_DB"
+    )
+
     conn = _admin_conn()
     try:
         # 断开可能残留的连接后重建库
