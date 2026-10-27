@@ -47,7 +47,7 @@ pytest tests/ -v
 ## CI / CD
 
 - **CI**（`.github/workflows/ci.yml`）：push / PR 到 `main` 触发。PostgreSQL 16、Redis 7 作为 service container，依次执行 `ruff check`、`ruff format --check`、`pytest`；另有独立 job 构建 Docker 镜像并请求 `/health/live` 做启动冒烟，确保部署产物可用。
-- **CD**（`.github/workflows/cd.yml`）：push 到 `main`、推送 `v*` tag 或手动触发时，构建镜像并推送到 GHCR（使用 `GITHUB_TOKEN`，无需额外 secrets）。
+- **CD**（`.github/workflows/cd.yml`）：`main` 上 CI 成功后才会发布（`workflow_run` 门禁，失败则跳过）；推送 `v*` tag 或手动触发直接发布。构建镜像并推送到 GHCR（使用 `GITHUB_TOKEN`，无需额外 secrets）。
 
 镜像拉取：
 
